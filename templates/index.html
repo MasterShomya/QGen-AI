@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QGenAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #e5e7eb; }
+        ::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* Spinner Animation */
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spinner { border-top-color: #4f46e5; animation: spin 1s linear infinite; }
+        
+        /* Toast Animations */
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(-20px) scale(0.9); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(-20px) scale(0.9); }
+        }
+        .toast-enter { animation: toast-in 0.3s cubic-bezier(0.21, 1.02, 0.73, 1) forwards; }
+        .toast-exit { animation: toast-out 0.3s ease-in forwards; }
+
+        /* File dropzone highlight */
+        .drag-over {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+        }
+
+        /* Skeleton Loader Animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .skeleton-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+    <script>
+      // Set the color scheme for Tailwind
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'primary': {
+                '50': '#eef2ff', '100': '#e0e7ff', '200': '#c7d2fe', '300': '#a5b4fc',
+                '400': '#818cf8', '500': '#6366f1', '600': '#4f46e5', '700': '#4338ca',
+                '800': '#3730a3', '900': '#312e81', '950': '#1e1b4b',
+              },
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans antialiased">
+
+    <div class="flex flex-col lg:flex-row min-h-screen">
+        
+        <aside class="w-full lg:w-1/3 lg:max-w-md bg-white p-6 lg:h-screen lg:sticky lg:top-0 shadow-lg z-10">
+            <div class="flex flex-col h-full">
+                <div class="flex items-center mb-6">
+                    <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center mr-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-900">QGenAI</h1>
+                </div>
+
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-6">
+                    <h2 class="text-lg font-semibold mb-4 text-primary-700">Database Control</h2>
+                    <form id="upload-form">
+                        <label for="file-input" id="dropzone" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-8 h-8 mb-3 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
+                                <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                                <p class="text-xs text-gray-500">PDF, DOCX, PPTX, TXT, PNG, JPG</p>
+                            </div>
+                            <input id="file-input" name="file" type="file" class="hidden" />
+                        </label>
+                        <div id="file-status-message" class="text-sm text-primary-600 mt-2 h-5 text-center font-medium"></div>
+                    </form>
+                    <div class="flex space-x-3 mt-3">
+                        <button type="submit" form="upload-form" id="upload-btn" class="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-150 shadow-sm hover:shadow-md focus:ring-4 focus:ring-primary-200">
+                            Upload File
+                        </button>
+                        <button id="clear-db-btn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2.5 px-4 rounded-lg transition-all duration-150 focus:ring-4 focus:ring-gray-300">
+                            Clear DB
+                        </button>
+                    </div>
+                </div>
+
+                <form id="generate-form" class="bg-gray-50 border border-gray-200 rounded-xl p-5 flex-1 flex flex-col">
+                    <h2 class="text-lg font-semibold mb-4 text-primary-700">Generate Questions</h2>
+                    <div class="mb-4">
+                        <label for="query-input" class="block text-sm font-medium text-gray-700 mb-1.5">Query / Topic</label>
+                        <textarea id="query-input" rows="3" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., 'Data Poisoning in LLMs'"></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="num-questions-input" class="block text-sm font-medium text-gray-700 mb-1.5">Number of Questions</label>
+                        <input type="number" id="num-questions-input" value="5" min="1" max="20" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                    <div class="mb-5">
+                        <label for="type-select" class="block text-sm font-medium text-gray-700 mb-1.5">Question Type</label>
+                        <select id="type-select" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                            <option value="mcq">Multiple Choice (MCQ)</option>
+                            <option value="qa">Very Short Q&A</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between mb-6">
+                        <label for="tavily-toggle" class="text-sm font-medium text-gray-700">Use Web Search</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="tavily-toggle" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                        </label>
+                    </div>
+                    <div class="mt-auto">
+                        <button type="submit" id="generate-btn" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-150 shadow-md hover:shadow-lg focus:ring-4 focus:ring-primary-300 flex items-center justify-center text-base">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" /></svg>
+                            Generate
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </aside>
+
+        <main class="w-full lg:w-1/2 flex-1 bg-gray-100 p-6 md:p-10 overflow-y-auto h-screen">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900">Generated Output</h2>
+                <button id="download-json-btn" class="hidden bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg transition duration-150 border border-gray-300 shadow-sm flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                    Download JSON
+                </button>
+            </div>
+
+            <div class="relative">
+                <div id="error-message" class="hidden bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-lg shadow-sm">
+                    <strong class="font-bold">Error:</strong>
+                    <span id="error-text" class="block sm:inline ml-1"></span>
+                </div>
+                
+                <div id="welcome-message" class="bg-white p-8 rounded-xl border border-gray-200 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 bg-primary-50 rounded-full p-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        </div>
+                        <h3 class="text-2xl font-semibold ml-4 text-gray-900">Welcome to the QGenAI!</h3>
+                    </div>
+                    <p class="mt-4 text-base text-gray-600">Get started by uploading your documents and writing a query. The AI will do the rest.</p>
+                    <div class="mt-6 border-t border-gray-200 pt-6 space-y-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">1</div>
+                            <div class="ml-4">
+                                <h4 class="text-lg font-medium text-gray-900">Upload Documents</h4>
+                                <p class="text-gray-600">Use the "Database Control" panel to upload your PDF, DOCX, or any other files.</p>
+                            </div>
+                        </div>
+                        <div class="flex">
+                            <div class="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">2</div>
+                            <div class="ml-4">
+                                <h4 class="text-lg font-medium text-gray-900">Write a Query</h4>
+                                <p class="text-gray-600">Tell the AI what topic to focus on, like "Key themes of chapter 3" or "K-Means algorithm" or anything you want.</p>
+                            </div>
+                        </div>
+                        <div class="flex">
+                            <div class="flex-shrink-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">3</div>
+                            <div class="ml-4">
+                                <h4 class="text-lg font-medium text-gray-900">Generate!</h4>
+                                <p class="text-gray-600">Choose your question type, number of questions, and hit "Generate".</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="results-container" class="space-y-5">
+                    </div>
+            </div>
+        </main>
+
+        <aside class="w-full lg:w-1/4 bg-gray-50 p-6 lg:h-screen lg:sticky lg:top-0 border-l border-gray-200">
+            <div id="tips-panel">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Pro-Tips</h2>
+                <div class="space-y-4">
+                    <div class="bg-primary-50 border border-primary-200 p-4 rounded-lg">
+                        <h4 class="font-semibold text-primary-800">Use Specific Queries</h4>
+                        <p class="text-sm text-primary-700 mt-1">Instead of using generic queries like "History", Use this way "Key battles of the American Civil War" for more focused results.</p>
+                    </div>
+                    <div class="bg-primary-50 border border-primary-200 p-4 rounded-lg">
+                        <h4 class="font-semibold text-primary-800">Web Search is Powerful</h4>
+                        <p class="text-sm text-primary-700 mt-1">If your documents are missing context, toggle on "Use Web Search" to let the AI find it online.</p>
+                    </div>
+                    <div class="bg-primary-50 border border-primary-200 p-4 rounded-lg">
+                        <h4 class="font-semibold text-primary-800">Combine Documents</h4>
+                        <p class="text-sm text-primary-700 mt-1">Upload multiple files (e.g., lecture notes and a textbook chapter) to let the AI synthesize information.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="details-panel" class="hidden">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">Generation Details</h2>
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                    <ul class="space-y-4">
+                        <li>
+                            <span class="block text-sm font-medium text-gray-500">Query</span>
+                            <span id="detail-query" class="block text-base font-semibold text-gray-900 break-words"></span>
+                        </li>
+                        <li>
+                            <span class="block text-sm font-medium text-gray-500">Generation Type</span>
+                            <span id="detail-type" class="block text-base font-semibold text-gray-900"></span>
+                        </li>
+                        <li>
+                            <span class="block text-sm font-medium text-gray-500">Web Search</span>
+                            <span id="detail-web-search" class="block text-base font-semibold text-gray-900"></span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <div id="toast-container" class="fixed top-5 right-5 z-50 w-full max-w-sm space-y-3">
+        </div>
+
+    <template id="toast-template">
+        <div class="toast-base max-w-sm w-full bg-white shadow-xl rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden toast-enter">
+            <div class="p-4">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 toast-icon">
+                        <svg class="h-6 w-6 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <svg class="h-6 w-6 text-red-500 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <svg class="h-6 w-6 text-primary-500 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div class="ml-3 w-0 flex-1 pt-0.5">
+                        <p class="text-sm font-medium text-gray-900 toast-message"></p>
+                    </div>
+                    <div class="ml-4 flex-shrink-0 flex">
+                        <button class="toast-close-btn inline-flex rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"><svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="mcq-card-template">
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md">
+            <p class="font-semibold text-lg text-gray-900 mb-4 question-text"></p>
+            <ol class="space-y-2.5 options-list"></ol>
+            <div class="border-t border-gray-200 mt-5 pt-4">
+                <p class="text-sm font-semibold text-primary-700">Explanation:</p>
+                <p class="text-sm text-gray-700 explanation-text mt-1.5"></p>
+            </div>
+        </div>
+    </template>
+
+    <template id="qa-card-template">
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-all hover:shadow-md">
+            <p class="font-semibold text-lg text-gray-900 mb-2 question-text"></p>
+            <p class="text-gray-700 answer-text"></p>
+        </div>
+    </template>
+
+    <template id="skeleton-card-template">
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm skeleton-pulse">
+            <div class="bg-gray-200 h-5 w-3/4 rounded-md mb-5"></div>
+            <div class="space-y-3">
+                <div class="bg-gray-200 h-4 w-full rounded-md"></div>
+                <div class="bg-gray-200 h-4 w-5/6 rounded-md"></div>
+                <div class="bg-gray-200 h-4 w-full rounded-md"></div>
+                <div class="bg-gray-200 h-4 w-3/4 rounded-md"></div>
+            </div>
+            <div class="border-t border-gray-200 mt-5 pt-4">
+                <div class="bg-gray-200 h-4 w-1/4 rounded-md mb-2"></div>
+                <div class="bg-gray-200 h-3 w-full rounded-md"></div>
+            </div>
+        </div>
+    </template>
+
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
