@@ -1,0 +1,17 @@
+flask
+python-dotenv
+langchain
+langchain-core
+langchain-groq
+langchain-openai
+pinecone-client
+langchain-pinecone
+tavily-python
+numpy
+pyopenssl
+pypdf
+docx2txt
+unstructured-powerpoint
+pillow
+pytesseract
+gunicorn
